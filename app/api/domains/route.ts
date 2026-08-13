@@ -7,6 +7,22 @@ import { generateToken } from "@/lib/tokens";
 export async function GET() {
   const domains = await prisma.domain.findMany({
     orderBy: { expiresAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      notifyEmail: true,
+      lastCheckedAt: true,
+      expiresAt: true,
+      issuer: true,
+      status: true,
+      lastError: true,
+      confirmed: true,
+      pendingDelete: true,
+      createdAt: true,
+      updatedAt: true,
+      // confirmToken ve deleteToken kasıtlı olarak dışarıda bırakıldı:
+      // bu liste herkese açık, token'lar yalnızca e-posta ile gönderilmeli.
+    },
   });
   return NextResponse.json(domains);
 }

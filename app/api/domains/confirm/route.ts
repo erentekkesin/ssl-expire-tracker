@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       status: result.ok ? statusFromExpiry(result.expiresAt!) : "error",
       lastError: result.ok ? null : result.error,
     },
+    select: { id: true, name: true, confirmed: true, status: true },
   });
 
   return NextResponse.json(updated);
