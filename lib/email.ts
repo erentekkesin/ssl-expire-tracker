@@ -1,13 +1,17 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function sendExpiryEmail(params: {
   to: string;
   domain: string;
   daysLeft: number;
   expiresAt: Date;
 }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY tanımlı değil, e-posta gönderilmedi.");
+    return null;
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const { to, domain, daysLeft, expiresAt } = params;
 
   const urgency =
