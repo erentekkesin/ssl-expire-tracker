@@ -1,0 +1,201 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface Domain {
+  id: string;
+  name: string;
+  notifyEmail: string;
+  expiresAt: string | null;
+  status: string;
+  issuer: string | null;
+  lastError: string | null;
+  lastCheckedAt: string | null;
+}
+
+const STATUS_MAP: Record<
+  string,
+  { label: string; classes: string; dot: string }
+> = {
+  ok: { label: "Güvende", classes: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", dot: "bg-emerald-400" },
+  warning: { label: "30 gün içinde", classes: "bg-amber-500/10 text-amber-400 border-amber-500/30", dot: "bg-amber-400" },
+  critical: { label: "7 gün içinde", classes: "bg-orange-500/10 text-orange-400 border-orange-500/30", dot: "bg-orange-400" },
+  expired: { label: "Süresi Doldu", classes: "bg-red-500/10 text-red-400 border-red-500/30", dot: "bg-red-400" },
+  error: { label: "Kontrol Edilemedi", classes: "bg-slate-500/10 text-slate-400 border-slate-500/30", dot: "bg-slate-400" },
+  pending: { label: "Bekliyor", classes: "bg-slate-500/10 text-slate-400 border-slate-500/30", dot: "bg-slate-400" },
+};
+
+function daysLeft(expiresAt: string | null) {
+  if (!expiresAt) return null;
+  return Math.floor((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
+}
+
+export default function Home() {
+  const [domains, setDomains] = useState<Domain[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+
+  async function loadDomains() {
+    const res = await fetch("/api/domains");
+    const data = await res.json();
+    setDomains(data);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadDomains();
+  }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, notifyEmail: email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Bir hata oluştu");
+      } else {
+        setName("");
+        setEmail("");
+        await loadDomains();
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/domains/${id}`, { method: "DELETE" });
+    await loadDomains();
+  }
+
+  async function handleRefresh(id: string) {
+    setRefreshingId(id);
+    await fetch(`/api/domains/${id}`, { method: "POST" });
+    await loadDomains();
+    setRefreshingId(null);
+  }
+
+  return (
+    <main className="mx-auto max-w-4xl px-6 py-12">
+      <header className="mb-10">
+        <h1 className="text-3xl font-bold tracking-tight">SSL Expire Tracker</h1>
+        <p className="mt-2 text-slate-400">
+          Web sitelerinizin SSL sertifika bitiş tarihlerini takip edin, süresi
+          yaklaştığında otomatik e-posta ile haberdar olun.
+        </p>
+      </header>
+
+      <form
+        onSubmit={handleAdd}
+        className="mb-10 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur sm:flex-row sm:items-end"
+      >
+        <div className="flex-1">
+          <label className="mb-1 block text-xs font-medium text-slate-400">
+            Domain
+          </label>
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="example.com"
+            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-xs font-medium text-slate-400">
+            Bildirim E-postası
+          </label>
+          <input
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ornek@sirket.com"
+            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+          />
+        </div>
+        <button
+          disabled={submitting}
+          className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {submitting ? "Ekleniyor..." : "Domain Ekle"}
+        </button>
+      </form>
+
+      {error && (
+        <p className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <p className="text-slate-500">Yükleniyor...</p>
+      ) : domains.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-slate-500">
+          Henüz eklenmiş bir domain yok. Yukarıdaki formdan ekleyebilirsiniz.
+        </p>
+      ) : (
+        <div className="grid gap-3">
+          {domains.map((d) => {
+            const dl = daysLeft(d.expiresAt);
+            const s = STATUS_MAP[d.status] || STATUS_MAP.pending;
+            return (
+              <div
+                key={d.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                    <span className="font-medium">{d.name}</span>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${s.classes}`}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {d.expiresAt
+                      ? `Bitiş: ${new Date(d.expiresAt).toLocaleDateString("tr-TR")} ${
+                          dl !== null ? `(${dl} gün kaldı)` : ""
+                        }`
+                      : d.lastError || "Henüz kontrol edilmedi"}
+                    {d.issuer ? ` · Sağlayıcı: ${d.issuer}` : ""}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Bildirim: {d.notifyEmail}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRefresh(d.id)}
+                    disabled={refreshingId === d.id}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-indigo-500 hover:text-indigo-400 disabled:opacity-50"
+                  >
+                    {refreshingId === d.id ? "Kontrol ediliyor..." : "Yenile"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(d.id)}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400"
+                  >
+                    Sil
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </main>
+  );
+}

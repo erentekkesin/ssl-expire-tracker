@@ -1,0 +1,32 @@
+// SSL Expire Tracker - Veritabanı Şeması
+// Varsayılan: SQLite (yerel geliştirme için sıfır kurulum).
+// Vercel gibi ortamlara canlıya alırken .env içindeki DATABASE_URL'i
+// bir Postgres bağlantısına (örn. Neon, Supabase) çevirip
+// provider = "postgresql" yapmanız gerekir çünkü Vercel'in dosya
+// sistemi kalıcı değildir (SQLite dosyası her deploy'da sıfırlanır).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Domain {
+  id            String   @id @default(cuid())
+  name          String   @unique // örn: example.com
+  notifyEmail   String
+  lastCheckedAt DateTime?
+  expiresAt     DateTime?
+  issuer        String?
+  status        String   @default("pending") // pending | ok | warning | critical | expired | error
+  lastError     String?
+  notified30    Boolean  @default(false)
+  notified15    Boolean  @default(false)
+  notified7     Boolean  @default(false)
+  notified1     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
