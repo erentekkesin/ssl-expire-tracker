@@ -27,6 +27,20 @@ export async function POST(req: NextRequest) {
   });
 }
 
+export async function DELETE(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (
+    process.env.CRON_SECRET &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  }
+
+  const { email } = await req.json();
+  await prisma.user.delete({ where: { email } });
+  return NextResponse.json({ ok: true });
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (
