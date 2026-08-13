@@ -11,6 +11,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/check-ssl",
   "/api/domains/confirm",
   "/api/domains/confirm-delete",
+  "/api/admin/",
 ];
 
 export function middleware(req: NextRequest) {
