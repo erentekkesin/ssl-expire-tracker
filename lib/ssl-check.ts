@@ -35,10 +35,14 @@ export function checkSslCertificate(
           if (!cert || Object.keys(cert).length === 0) {
             resolve({ ok: false, error: "Sertifika bilgisi alınamadı" });
           } else {
+            const firstValue = (v: string | string[] | undefined) =>
+              Array.isArray(v) ? v[0] : v;
+            const org = firstValue(cert.issuer?.O);
+            const cn = firstValue(cert.issuer?.CN);
             resolve({
               ok: true,
               expiresAt: new Date(cert.valid_to),
-              issuer: cert.issuer?.O || cert.issuer?.CN || "Bilinmiyor",
+              issuer: org || cn || "Bilinmiyor",
             });
           }
         } catch (err) {
