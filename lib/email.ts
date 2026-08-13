@@ -23,25 +23,34 @@ export async function sendExpiryEmail(params: {
       : `⚠️ [${urgency}] ${domain} SSL sertifikası ${daysLeft} gün içinde bitiyor`;
 
   const html = `
-    <div style="font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #dc2626;">SSL Sertifika Uyarısı</h2>
-      <p><strong>${domain}</strong> için SSL sertifikasının bitiş tarihi yaklaşıyor.</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <tr>
-          <td style="padding: 8px; color: #6b7280;">Domain</td>
-          <td style="padding: 8px; font-weight: 600;">${domain}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px; color: #6b7280;">Bitiş Tarihi</td>
-          <td style="padding: 8px; font-weight: 600;">${expiresAt.toLocaleDateString("tr-TR")}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px; color: #6b7280;">Kalan Süre</td>
-          <td style="padding: 8px; font-weight: 600;">${daysLeft} gün</td>
-        </tr>
-      </table>
-      <p style="color: #6b7280; font-size: 13px;">Bu e-posta SSL Expire Tracker uygulaması tarafından otomatik gönderilmiştir.</p>
-    </div>
+    <!DOCTYPE html>
+    <html lang="tr">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      </head>
+      <body style="margin: 0; padding: 0;">
+        <div style="font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">SSL Sertifika Uyarısı</h2>
+          <p><strong>${domain}</strong> için SSL sertifikasının bitiş tarihi yaklaşıyor.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr>
+              <td style="padding: 8px; color: #6b7280;">Domain</td>
+              <td style="padding: 8px; font-weight: 600;">${domain}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; color: #6b7280;">Bitiş Tarihi</td>
+              <td style="padding: 8px; font-weight: 600;">${expiresAt.toLocaleDateString("tr-TR")}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; color: #6b7280;">Kalan Süre</td>
+              <td style="padding: 8px; font-weight: 600;">${daysLeft} gün</td>
+            </tr>
+          </table>
+          <p style="color: #6b7280; font-size: 13px;">Bu e-posta SSL Expire Tracker uygulaması tarafından otomatik gönderilmiştir.</p>
+        </div>
+      </body>
+    </html>
   `;
 
   return resend.emails.send({
