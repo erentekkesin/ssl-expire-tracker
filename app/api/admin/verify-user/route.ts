@@ -19,5 +19,28 @@ export async function POST(req: NextRequest) {
     data: { emailVerified: true, verifyToken: null },
   });
 
-  return NextResponse.json({ ok: true, email: user.email });
+  return NextResponse.json({
+    ok: true,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    id: user.id,
+  });
+}
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (
+    process.env.CRON_SECRET &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  }
+
+  const email = req.nextUrl.searchParams.get("email") || "";
+  const user = await prisma.user.findUnique({ where: { email } });
+  const allUsers = await prisma.user.findMany({
+    select: { id: true, email: true, emailVerified: true },
+  });
+
+  return NextResponse.json({ user, allUsers });
 }
