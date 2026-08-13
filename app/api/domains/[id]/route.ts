@@ -4,11 +4,20 @@ import { checkSslCertificate, statusFromExpiry } from "@/lib/ssl-check";
 import { isEmailConfigured, sendDeleteConfirmationEmail } from "@/lib/email";
 import { generateToken } from "@/lib/tokens";
 import { maskEmail } from "@/lib/mask";
+import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const ip = getClientIp(req);
+  if (isRateLimited(`delete:${ip}`, 10, 10 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: "Çok fazla istek gönderildi. Lütfen birkaç dakika sonra tekrar deneyin." },
+      { status: 429 }
+    );
+  }
+
   const domain = await prisma.domain.findUnique({ where: { id: params.id } });
   if (!domain) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });

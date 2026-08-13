@@ -122,6 +122,16 @@ export default function Home() {
     setRefreshingId(null);
   }
 
+  const confirmedDomains = domains.filter((d) => d.confirmed);
+  const summary = {
+    total: domains.length,
+    ok: confirmedDomains.filter((d) => d.status === "ok").length,
+    attention: confirmedDomains.filter((d) =>
+      ["warning", "critical", "expired", "error"].includes(d.status)
+    ).length,
+    pending: domains.filter((d) => !d.confirmed || d.pendingDelete).length,
+  };
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
       <header className="mb-10">
@@ -131,6 +141,27 @@ export default function Home() {
           yaklaştığında otomatik e-posta ile haberdar olun.
         </p>
       </header>
+
+      {!loading && domains.length > 0 && (
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+            <p className="text-2xl font-bold">{summary.total}</p>
+            <p className="text-xs text-slate-500">Toplam Domain</p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <p className="text-2xl font-bold text-emerald-400">{summary.ok}</p>
+            <p className="text-xs text-slate-500">Güvende</p>
+          </div>
+          <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+            <p className="text-2xl font-bold text-orange-400">{summary.attention}</p>
+            <p className="text-xs text-slate-500">Dikkat Gerekli</p>
+          </div>
+          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+            <p className="text-2xl font-bold text-indigo-400">{summary.pending}</p>
+            <p className="text-xs text-slate-500">Onay Bekliyor</p>
+          </div>
+        </div>
+      )}
 
       <form
         onSubmit={handleAdd}
@@ -188,11 +219,24 @@ export default function Home() {
       )}
 
       {loading ? (
-        <p className="text-slate-500">Yükleniyor...</p>
+        <div className="grid gap-3">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-20 animate-pulse rounded-xl border border-slate-800 bg-slate-900/40"
+            />
+          ))}
+        </div>
       ) : domains.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-slate-500">
-          Henüz eklenmiş bir domain yok. Yukarıdaki formdan ekleyebilirsiniz.
-        </p>
+        <div className="rounded-xl border border-dashed border-slate-800 p-10 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10 text-2xl">
+            🔒
+          </div>
+          <p className="text-slate-400">Henüz eklenmiş bir domain yok.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Yukarıdaki formdan bir domain ekleyip başlayabilirsiniz.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-3">
           {domains.map((d) => {

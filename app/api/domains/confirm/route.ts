@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkSslCertificate, statusFromExpiry } from "@/lib/ssl-check";
+import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 // Onay sayfasının, butonu göstermeden önce domain adını göstermesi için
 export async function GET(req: NextRequest) {
@@ -22,6 +23,14 @@ export async function GET(req: NextRequest) {
 
 // Kullanıcı "Onayla" butonuna bastığında çalışır
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  if (isRateLimited(`confirm:${ip}`, 20, 10 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: "Çok fazla istek gönderildi. Lütfen birkaç dakika sonra tekrar deneyin." },
+      { status: 429 }
+    );
+  }
+
   const { token } = await req.json();
   if (!token) {
     return NextResponse.json({ error: "Bağlantı geçersiz" }, { status: 400 });
