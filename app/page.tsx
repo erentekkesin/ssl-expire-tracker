@@ -54,6 +54,7 @@ export default function Home() {
   const [info, setInfo] = useState<string | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
 
   async function loadDomains() {
     const res = await fetch("/api/domains");
@@ -112,6 +113,19 @@ export default function Home() {
       await loadDomains();
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleCancelDelete(id: string) {
+    setCancelingId(id);
+    setError(null);
+    setInfo(null);
+    try {
+      await fetch(`/api/domains/${id}/cancel-delete`, { method: "POST" });
+      setInfo("Silme talebi iptal edildi, domain normal takibe devam ediyor.");
+      await loadDomains();
+    } finally {
+      setCancelingId(null);
     }
   }
 
@@ -285,17 +299,23 @@ export default function Home() {
                       {refreshingId === d.id ? "Kontrol ediliyor..." : "Yenile"}
                     </button>
                   )}
-                  <button
-                    onClick={() => handleDelete(d.id)}
-                    disabled={deletingId === d.id || d.pendingDelete}
-                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
-                  >
-                    {d.pendingDelete
-                      ? "Onay bekleniyor"
-                      : deletingId === d.id
-                        ? "İşleniyor..."
-                        : "Sil"}
-                  </button>
+                  {d.pendingDelete ? (
+                    <button
+                      onClick={() => handleCancelDelete(d.id)}
+                      disabled={cancelingId === d.id}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-indigo-500 hover:text-indigo-400 disabled:opacity-50"
+                    >
+                      {cancelingId === d.id ? "İptal ediliyor..." : "Silmeyi İptal Et"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(d.id)}
+                      disabled={deletingId === d.id}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+                    >
+                      {deletingId === d.id ? "İşleniyor..." : "Sil"}
+                    </button>
+                  )}
                 </div>
               </div>
             );
