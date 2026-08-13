@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { checkSslCertificate, statusFromExpiry } from "@/lib/ssl-check";
 import { isEmailConfigured, sendAddConfirmationEmail } from "@/lib/email";
 import { generateToken } from "@/lib/tokens";
+import { maskEmail } from "@/lib/mask";
 
 export async function GET() {
   const domains = await prisma.domain.findMany({
@@ -24,7 +25,8 @@ export async function GET() {
       // bu liste herkese açık, token'lar yalnızca e-posta ile gönderilmeli.
     },
   });
-  return NextResponse.json(domains);
+  const masked = domains.map((d) => ({ ...d, notifyEmail: maskEmail(d.notifyEmail) }));
+  return NextResponse.json(masked);
 }
 
 export async function POST(req: NextRequest) {
@@ -67,7 +69,10 @@ export async function POST(req: NextRequest) {
         lastError: result.ok ? null : result.error,
       },
     });
-    return NextResponse.json(domain, { status: 201 });
+    return NextResponse.json(
+      { ...domain, notifyEmail: maskEmail(domain.notifyEmail) },
+      { status: 201 }
+    );
   }
 
   if (existing && existing.confirmed) {

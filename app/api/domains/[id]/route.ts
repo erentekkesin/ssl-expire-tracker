@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { checkSslCertificate, statusFromExpiry } from "@/lib/ssl-check";
 import { isEmailConfigured, sendDeleteConfirmationEmail } from "@/lib/email";
 import { generateToken } from "@/lib/tokens";
+import { maskEmail } from "@/lib/mask";
 
 export async function DELETE(
   req: NextRequest,
@@ -73,5 +74,5 @@ export async function POST(
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ ...updated, notifyEmail: maskEmail(updated.notifyEmail) });
 }
