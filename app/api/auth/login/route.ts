@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createSession, setSessionCookie, verifyPassword } from "@/lib/auth";
+import {
+  createSession,
+  DUMMY_PASSWORD_HASH,
+  setSessionCookie,
+  verifyPassword,
+} from "@/lib/auth";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
@@ -17,7 +22,13 @@ export async function POST(req: NextRequest) {
   const password = body.password || "";
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  // Kullanıcı bulunamasa bile hash karşılaştırması çalıştırılır; aksi halde
+  // yanıt süresi farkından hangi e-postaların kayıtlı olduğu anlaşılabilir.
+  const passwordValid = verifyPassword(
+    password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH
+  );
+  if (!user || !passwordValid) {
     return NextResponse.json(
       { error: "E-posta veya şifre hatalı" },
       { status: 401 }

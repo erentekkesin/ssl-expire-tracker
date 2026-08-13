@@ -12,6 +12,12 @@ export function hashPassword(password: string): string {
   return `${salt}:${hash}`;
 }
 
+// Kullanıcı bulunamadığında da hash hesaplamasının çalışmasını sağlamak için
+// (yanıt süresi farkından e-posta var/yok tahmini yapılamasın diye) sabit bir
+// "dummy" hash. Değeri önemli değil, sadece scrypt'in her koşulda çalışmasını
+// sağlar.
+export const DUMMY_PASSWORD_HASH = hashPassword("timing-attack-guard");
+
 export function verifyPassword(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;

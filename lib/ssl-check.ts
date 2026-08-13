@@ -1,4 +1,6 @@
 import tls from "node:tls";
+import dns from "node:dns";
+import net from "node:net";
 
 export interface SslCheckResult {
   ok: boolean;
@@ -8,24 +10,69 @@ export interface SslCheckResult {
 }
 
 /**
+ * Bir IP adresinin özel/iç ağ veya bulut metadata adresi olup olmadığını
+ * kontrol eder. Kullanıcılar domain adı olarak iç ağ adresleri (örn.
+ * 169.254.169.254 bulut metadata servisi, 127.0.0.1, 10.x.x.x) girip
+ * sunucunun onlara bağlanmasını sağlayamasın diye (SSRF koruması).
+ */
+function isPrivateOrReservedIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    const [a, b] = parts;
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 127) return true; // loopback
+    if (a === 169 && b === 254) return true; // link-local (bulut metadata dahil)
+    if (a === 0) return true; // 0.0.0.0/8
+    if (a >= 224) return true; // multicast/reserved
+    return false;
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    if (lower === "::1") return true; // loopback
+    if (lower.startsWith("fe80:")) return true; // link-local
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // unique local (fc00::/7)
+    if (lower.startsWith("::ffff:")) {
+      // IPv4-mapped IPv6 adresi, IPv4 kuralına göre tekrar kontrol et
+      return isPrivateOrReservedIp(lower.replace("::ffff:", ""));
+    }
+    return false;
+  }
+  return true; // ayrıştırılamayan adresler güvenli tarafta kalınarak reddedilir
+}
+
+/**
  * Verilen domain'e 443 portundan TLS bağlantısı kurup
  * sertifikanın bitiş tarihini (valid_to) okur.
  */
-export function checkSslCertificate(
+export async function checkSslCertificate(
   hostname: string,
   timeoutMs = 8000
 ): Promise<SslCheckResult> {
-  return new Promise((resolve) => {
-    const cleanHost = hostname
-      .trim()
-      .replace(/^https?:\/\//, "")
-      .replace(/\/.*$/, "");
+  const cleanHost = hostname
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "");
 
+  let resolvedIp: string;
+  try {
+    const lookup = await dns.promises.lookup(cleanHost);
+    resolvedIp = lookup.address;
+  } catch {
+    return { ok: false, error: "Domain çözümlenemedi (DNS hatası)" };
+  }
+
+  if (isPrivateOrReservedIp(resolvedIp)) {
+    return { ok: false, error: "Özel/iç ağ adreslerine bağlantı desteklenmiyor" };
+  }
+
+  return new Promise((resolve) => {
     const socket = tls.connect(
       {
-        host: cleanHost,
+        host: resolvedIp,
         port: 443,
-        servername: cleanHost, // SNI için gerekli
+        servername: cleanHost, // SNI ve sertifika doğrulaması için gerçek hostname
         timeout: timeoutMs,
         rejectUnauthorized: false, // süresi dolmuş sertifikaları da okuyabilmek için
       },

@@ -65,7 +65,10 @@ function LoginForm() {
         setError(data.error || "Giriş yapılamadı");
         return;
       }
-      const next = searchParams.get("next") || "/";
+      // Açık yönlendirme (open redirect) riskine karşı: yalnızca sitenin
+      // kendi içindeki göreli yollara izin ver, dışarıya yönlendirme yapma.
+      const rawNext = searchParams.get("next") || "/";
+      const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
       router.push(next);
       router.refresh();
     } finally {

@@ -5,6 +5,24 @@ export function isEmailConfigured() {
   return !!process.env.RESEND_API_KEY;
 }
 
+/** Kullanıcı girdisini (domain adı gibi) e-posta HTML'ine gömmeden önce
+ * kaçışlar: aksi halde biri domain adı olarak HTML/link içeren bir metin
+ * girip, güvenilir gönderen adresimizden phishing içerikli e-posta
+ * gönderilmesini sağlayabilir. */
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** E-posta konu başlığına satır sonu/kontrol karakteri sızmasını önler. */
+function sanitizeForHeader(value: string) {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
 function wrapHtml(bodyHtml: string) {
   return `
     <!DOCTYPE html>
@@ -34,10 +52,11 @@ export async function sendAddConfirmationEmail(params: {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { to, domain, confirmUrl } = params;
+  const safeDomain = escapeHtml(domain);
 
   const html = wrapHtml(`
     <h2 style="color: #4f46e5;">Domain Ekleme Onayı</h2>
-    <p><strong>${domain}</strong> domainini SSL Expire Tracker'a eklemek ve bu adrese SSL bildirimleri göndermek için aşağıdaki butona tıklayın.</p>
+    <p><strong>${safeDomain}</strong> domainini SSL Expire Tracker'a eklemek ve bu adrese SSL bildirimleri göndermek için aşağıdaki butona tıklayın.</p>
     <p style="margin: 24px 0;">
       <a href="${confirmUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">Domaini Onayla ve Ekle</a>
     </p>
@@ -47,7 +66,7 @@ export async function sendAddConfirmationEmail(params: {
   return resend.emails.send({
     from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",
     to,
-    subject: `Onay gerekli: ${domain} domainini eklemek istiyor musunuz?`,
+    subject: sanitizeForHeader(`Onay gerekli: ${domain} domainini eklemek istiyor musunuz?`),
     html,
   });
 }
@@ -64,10 +83,11 @@ export async function sendDeleteConfirmationEmail(params: {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { to, domain, confirmUrl } = params;
+  const safeDomain = escapeHtml(domain);
 
   const html = wrapHtml(`
     <h2 style="color: #dc2626;">Domain Silme Onayı</h2>
-    <p><strong>${domain}</strong> domainini SSL Expire Tracker'dan silmek istediğinizi onaylamak için aşağıdaki butona tıklayın.</p>
+    <p><strong>${safeDomain}</strong> domainini SSL Expire Tracker'dan silmek istediğinizi onaylamak için aşağıdaki butona tıklayın.</p>
     <p style="margin: 24px 0;">
       <a href="${confirmUrl}" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">Silmeyi Onayla</a>
     </p>
@@ -77,7 +97,7 @@ export async function sendDeleteConfirmationEmail(params: {
   return resend.emails.send({
     from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",
     to,
-    subject: `Onay gerekli: ${domain} domainini silmek istiyor musunuz?`,
+    subject: sanitizeForHeader(`Onay gerekli: ${domain} domainini silmek istiyor musunuz?`),
     html,
   });
 }
@@ -150,22 +170,24 @@ export async function sendExpiryEmail(params: {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { to, domain, daysLeft, expiresAt } = params;
+  const safeDomain = escapeHtml(domain);
 
   const urgency =
     daysLeft <= 1 ? "ACİL" : daysLeft <= 7 ? "Kritik" : "Uyarı";
 
-  const subject =
+  const subject = sanitizeForHeader(
     daysLeft < 0
       ? `🔴 SSL Sertifikası Süresi Doldu: ${domain}`
-      : `⚠️ [${urgency}] ${domain} SSL sertifikası ${daysLeft} gün içinde bitiyor`;
+      : `⚠️ [${urgency}] ${domain} SSL sertifikası ${daysLeft} gün içinde bitiyor`
+  );
 
   const html = wrapHtml(`
     <h2 style="color: #dc2626;">SSL Sertifika Uyarısı</h2>
-    <p><strong>${domain}</strong> için SSL sertifikasının bitiş tarihi yaklaşıyor.</p>
+    <p><strong>${safeDomain}</strong> için SSL sertifikasının bitiş tarihi yaklaşıyor.</p>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
       <tr>
         <td style="padding: 8px; color: #6b7280;">Domain</td>
-        <td style="padding: 8px; font-weight: 600;">${domain}</td>
+        <td style="padding: 8px; font-weight: 600;">${safeDomain}</td>
       </tr>
       <tr>
         <td style="padding: 8px; color: #6b7280;">Bitiş Tarihi</td>
