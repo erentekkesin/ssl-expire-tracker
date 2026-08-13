@@ -1,5 +1,87 @@
 import { Resend } from "resend";
 
+/** RESEND_API_KEY tanımlı değilse onay e-postası gönderilemez; bu durumda çağıran taraf işlemi otomatik onaylamalıdır. */
+export function isEmailConfigured() {
+  return !!process.env.RESEND_API_KEY;
+}
+
+function wrapHtml(bodyHtml: string) {
+  return `
+    <!DOCTYPE html>
+    <html lang="tr">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      </head>
+      <body style="margin: 0; padding: 0;">
+        <div style="font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          ${bodyHtml}
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+export async function sendAddConfirmationEmail(params: {
+  to: string;
+  domain: string;
+  confirmUrl: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY tanımlı değil, onay e-postası gönderilmedi.");
+    return null;
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { to, domain, confirmUrl } = params;
+
+  const html = wrapHtml(`
+    <h2 style="color: #4f46e5;">Domain Ekleme Onayı</h2>
+    <p><strong>${domain}</strong> domainini SSL Expire Tracker'a eklemek ve bu adrese SSL bildirimleri göndermek için aşağıdaki butona tıklayın.</p>
+    <p style="margin: 24px 0;">
+      <a href="${confirmUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">Domaini Onayla ve Ekle</a>
+    </p>
+    <p style="color: #6b7280; font-size: 13px;">Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz, domain eklenmeyecektir.</p>
+  `);
+
+  return resend.emails.send({
+    from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",
+    to,
+    subject: `Onay gerekli: ${domain} domainini eklemek istiyor musunuz?`,
+    html,
+  });
+}
+
+export async function sendDeleteConfirmationEmail(params: {
+  to: string;
+  domain: string;
+  confirmUrl: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY tanımlı değil, onay e-postası gönderilmedi.");
+    return null;
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { to, domain, confirmUrl } = params;
+
+  const html = wrapHtml(`
+    <h2 style="color: #dc2626;">Domain Silme Onayı</h2>
+    <p><strong>${domain}</strong> domainini SSL Expire Tracker'dan silmek istediğinizi onaylamak için aşağıdaki butona tıklayın.</p>
+    <p style="margin: 24px 0;">
+      <a href="${confirmUrl}" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">Silmeyi Onayla</a>
+    </p>
+    <p style="color: #6b7280; font-size: 13px;">Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz, domain silinmeyecektir.</p>
+  `);
+
+  return resend.emails.send({
+    from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",
+    to,
+    subject: `Onay gerekli: ${domain} domainini silmek istiyor musunuz?`,
+    html,
+  });
+}
+
 export async function sendExpiryEmail(params: {
   to: string;
   domain: string;
@@ -22,36 +104,25 @@ export async function sendExpiryEmail(params: {
       ? `🔴 SSL Sertifikası Süresi Doldu: ${domain}`
       : `⚠️ [${urgency}] ${domain} SSL sertifikası ${daysLeft} gün içinde bitiyor`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html lang="tr">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </head>
-      <body style="margin: 0; padding: 0;">
-        <div style="font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2 style="color: #dc2626;">SSL Sertifika Uyarısı</h2>
-          <p><strong>${domain}</strong> için SSL sertifikasının bitiş tarihi yaklaşıyor.</p>
-          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-            <tr>
-              <td style="padding: 8px; color: #6b7280;">Domain</td>
-              <td style="padding: 8px; font-weight: 600;">${domain}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; color: #6b7280;">Bitiş Tarihi</td>
-              <td style="padding: 8px; font-weight: 600;">${expiresAt.toLocaleDateString("tr-TR")}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; color: #6b7280;">Kalan Süre</td>
-              <td style="padding: 8px; font-weight: 600;">${daysLeft} gün</td>
-            </tr>
-          </table>
-          <p style="color: #6b7280; font-size: 13px;">Bu e-posta SSL Expire Tracker uygulaması tarafından otomatik gönderilmiştir.</p>
-        </div>
-      </body>
-    </html>
-  `;
+  const html = wrapHtml(`
+    <h2 style="color: #dc2626;">SSL Sertifika Uyarısı</h2>
+    <p><strong>${domain}</strong> için SSL sertifikasının bitiş tarihi yaklaşıyor.</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+      <tr>
+        <td style="padding: 8px; color: #6b7280;">Domain</td>
+        <td style="padding: 8px; font-weight: 600;">${domain}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; color: #6b7280;">Bitiş Tarihi</td>
+        <td style="padding: 8px; font-weight: 600;">${expiresAt.toLocaleDateString("tr-TR")}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; color: #6b7280;">Kalan Süre</td>
+        <td style="padding: 8px; font-weight: 600;">${daysLeft} gün</td>
+      </tr>
+    </table>
+    <p style="color: #6b7280; font-size: 13px;">Bu e-posta SSL Expire Tracker uygulaması tarafından otomatik gönderilmiştir.</p>
+  `);
 
   return resend.emails.send({
     from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",

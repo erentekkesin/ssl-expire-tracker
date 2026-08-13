@@ -27,6 +27,10 @@ model Domain {
   notified15    Boolean  @default(false)
   notified7     Boolean  @default(false)
   notified1     Boolean  @default(false)
+  confirmed     Boolean  @default(false)
+  confirmToken  String?  @unique
+  deleteToken   String?  @unique
+  pendingDelete Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

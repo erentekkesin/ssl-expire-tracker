@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
   }
 
-  const domains = await prisma.domain.findMany();
+  const domains = await prisma.domain.findMany({ where: { confirmed: true } });
   const results = [];
 
   for (const domain of domains) {

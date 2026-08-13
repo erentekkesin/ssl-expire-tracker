@@ -11,6 +11,8 @@ interface Domain {
   issuer: string | null;
   lastError: string | null;
   lastCheckedAt: string | null;
+  confirmed: boolean;
+  pendingDelete: boolean;
 }
 
 const STATUS_MAP: Record<
@@ -25,6 +27,18 @@ const STATUS_MAP: Record<
   pending: { label: "Bekliyor", classes: "bg-slate-500/10 text-slate-400 border-slate-500/30", dot: "bg-slate-400" },
 };
 
+const AWAITING_CONFIRM = {
+  label: "Onay Bekliyor",
+  classes: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
+  dot: "bg-indigo-400",
+};
+
+const AWAITING_DELETE = {
+  label: "Silme Onayı Bekleniyor",
+  classes: "bg-red-500/10 text-red-400 border-red-500/30",
+  dot: "bg-red-400",
+};
+
 function daysLeft(expiresAt: string | null) {
   if (!expiresAt) return null;
   return Math.floor((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
@@ -37,7 +51,9 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadDomains() {
     const res = await fetch("/api/domains");
@@ -53,6 +69,7 @@ export default function Home() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setSubmitting(true);
     try {
       const res = await fetch("/api/domains", {
@@ -66,6 +83,11 @@ export default function Home() {
       } else {
         setName("");
         setEmail("");
+        if (data.pendingConfirmation) {
+          setInfo(
+            `"${data.name}" domainini eklemek için onay e-postası gönderildi. Eklemenin tamamlanması için e-postanızdaki bağlantıya tıklayın.`
+          );
+        }
         await loadDomains();
       }
     } finally {
@@ -74,8 +96,23 @@ export default function Home() {
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/domains/${id}`, { method: "DELETE" });
-    await loadDomains();
+    setDeletingId(id);
+    setError(null);
+    setInfo(null);
+    try {
+      const res = await fetch(`/api/domains/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Bir hata oluştu");
+      } else if (data.pendingConfirmation) {
+        setInfo(
+          "Domaini silmek için onay e-postası gönderildi. Silme işleminin tamamlanması için e-postanızdaki bağlantıya tıklayın."
+        );
+      }
+      await loadDomains();
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleRefresh(id: string) {
@@ -97,7 +134,7 @@ export default function Home() {
 
       <form
         onSubmit={handleAdd}
-        className="mb-10 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur sm:flex-row sm:items-end"
+        className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur sm:flex-row sm:items-end"
       >
         <div className="flex-1">
           <label className="mb-1 block text-xs font-medium text-slate-400">
@@ -132,6 +169,18 @@ export default function Home() {
         </button>
       </form>
 
+      <p className="mb-6 text-xs text-slate-500">
+        Güvenlik amacıyla domain ekleme ve silme işlemleri, bildirim
+        e-postanıza gönderilen bağlantıya tıklayarak onaylanana kadar
+        tamamlanmaz.
+      </p>
+
+      {info && (
+        <p className="mb-6 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-300">
+          {info}
+        </p>
+      )}
+
       {error && (
         <p className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
           {error}
@@ -148,7 +197,11 @@ export default function Home() {
         <div className="grid gap-3">
           {domains.map((d) => {
             const dl = daysLeft(d.expiresAt);
-            const s = STATUS_MAP[d.status] || STATUS_MAP.pending;
+            const s = !d.confirmed
+              ? AWAITING_CONFIRM
+              : d.pendingDelete
+                ? AWAITING_DELETE
+                : STATUS_MAP[d.status] || STATUS_MAP.pending;
             return (
               <div
                 key={d.id}
@@ -165,30 +218,39 @@ export default function Home() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    {d.expiresAt
-                      ? `Bitiş: ${new Date(d.expiresAt).toLocaleDateString("tr-TR")} ${
-                          dl !== null ? `(${dl} gün kaldı)` : ""
-                        }`
-                      : d.lastError || "Henüz kontrol edilmedi"}
-                    {d.issuer ? ` · Sağlayıcı: ${d.issuer}` : ""}
+                    {!d.confirmed
+                      ? "E-postanızdaki bağlantıyla onaylayana kadar takip başlamayacak"
+                      : d.expiresAt
+                        ? `Bitiş: ${new Date(d.expiresAt).toLocaleDateString("tr-TR")} ${
+                            dl !== null ? `(${dl} gün kaldı)` : ""
+                          }`
+                        : d.lastError || "Henüz kontrol edilmedi"}
+                    {d.confirmed && d.issuer ? ` · Sağlayıcı: ${d.issuer}` : ""}
                   </p>
                   <p className="text-xs text-slate-600">
                     Bildirim: {d.notifyEmail}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleRefresh(d.id)}
-                    disabled={refreshingId === d.id}
-                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-indigo-500 hover:text-indigo-400 disabled:opacity-50"
-                  >
-                    {refreshingId === d.id ? "Kontrol ediliyor..." : "Yenile"}
-                  </button>
+                  {d.confirmed && (
+                    <button
+                      onClick={() => handleRefresh(d.id)}
+                      disabled={refreshingId === d.id}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-indigo-500 hover:text-indigo-400 disabled:opacity-50"
+                    >
+                      {refreshingId === d.id ? "Kontrol ediliyor..." : "Yenile"}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(d.id)}
-                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400"
+                    disabled={deletingId === d.id || d.pendingDelete}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
                   >
-                    Sil
+                    {d.pendingDelete
+                      ? "Onay bekleniyor"
+                      : deletingId === d.id
+                        ? "İşleniyor..."
+                        : "Sil"}
                   </button>
                 </div>
               </div>
@@ -196,6 +258,10 @@ export default function Home() {
           })}
         </div>
       )}
+
+      <footer className="mt-16 border-t border-slate-800 pt-6 text-center text-xs text-slate-600">
+        Eren Tekkeşin tarafından yapılmıştır.
+      </footer>
     </main>
   );
 }

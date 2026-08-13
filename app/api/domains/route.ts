@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkSslCertificate, statusFromExpiry } from "@/lib/ssl-check";
+import { isEmailConfigured, sendAddConfirmationEmail } from "@/lib/email";
+import { generateToken } from "@/lib/tokens";
 
 export async function GET() {
   const domains = await prisma.domain.findMany({
@@ -27,27 +29,59 @@ export async function POST(req: NextRequest) {
     .replace(/\/.*$/, "");
 
   const existing = await prisma.domain.findUnique({ where: { name: cleanName } });
-  if (existing) {
+
+  // E-posta gönderimi kurulu değilse onay akışını atla, eskisi gibi doğrudan ekle.
+  if (!isEmailConfigured()) {
+    if (existing) {
+      return NextResponse.json(
+        { error: "Bu domain zaten listede var" },
+        { status: 409 }
+      );
+    }
+    const result = await checkSslCertificate(cleanName);
+    const domain = await prisma.domain.create({
+      data: {
+        name: cleanName,
+        notifyEmail,
+        confirmed: true,
+        lastCheckedAt: new Date(),
+        expiresAt: result.expiresAt ?? null,
+        issuer: result.issuer ?? null,
+        status: result.ok ? statusFromExpiry(result.expiresAt!) : "error",
+        lastError: result.ok ? null : result.error,
+      },
+    });
+    return NextResponse.json(domain, { status: 201 });
+  }
+
+  if (existing && existing.confirmed) {
     return NextResponse.json(
       { error: "Bu domain zaten listede var" },
       { status: 409 }
     );
   }
 
-  // Domain eklenir eklenmez ilk kontrolü hemen yap
-  const result = await checkSslCertificate(cleanName);
+  const confirmToken = generateToken();
 
-  const domain = await prisma.domain.create({
-    data: {
-      name: cleanName,
-      notifyEmail,
-      lastCheckedAt: new Date(),
-      expiresAt: result.expiresAt ?? null,
-      issuer: result.issuer ?? null,
-      status: result.ok ? statusFromExpiry(result.expiresAt!) : "error",
-      lastError: result.ok ? null : result.error,
-    },
-  });
+  const domain = existing
+    ? await prisma.domain.update({
+        where: { id: existing.id },
+        data: { notifyEmail, confirmToken },
+      })
+    : await prisma.domain.create({
+        data: {
+          name: cleanName,
+          notifyEmail,
+          confirmed: false,
+          confirmToken,
+        },
+      });
 
-  return NextResponse.json(domain, { status: 201 });
+  const confirmUrl = `${req.nextUrl.origin}/confirm-domain?token=${confirmToken}`;
+  await sendAddConfirmationEmail({ to: notifyEmail, domain: cleanName, confirmUrl });
+
+  return NextResponse.json(
+    { pendingConfirmation: true, name: domain.name },
+    { status: 202 }
+  );
 }

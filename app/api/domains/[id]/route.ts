@@ -1,13 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkSslCertificate, statusFromExpiry } from "@/lib/ssl-check";
+import { isEmailConfigured, sendDeleteConfirmationEmail } from "@/lib/email";
+import { generateToken } from "@/lib/tokens";
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  await prisma.domain.delete({ where: { id: params.id } });
-  return NextResponse.json({ ok: true });
+  const domain = await prisma.domain.findUnique({ where: { id: params.id } });
+  if (!domain) {
+    return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
+  }
+
+  // Henüz onaylanmamış (yani hiç aktif olmamış) bir kaydı silmek için
+  // ayrıca onay istemeye gerek yok.
+  if (!domain.confirmed || !isEmailConfigured()) {
+    await prisma.domain.delete({ where: { id: domain.id } });
+    return NextResponse.json({ ok: true });
+  }
+
+  const deleteToken = generateToken();
+  await prisma.domain.update({
+    where: { id: domain.id },
+    data: { deleteToken, pendingDelete: true },
+  });
+
+  const confirmUrl = `${req.nextUrl.origin}/confirm-delete?token=${deleteToken}`;
+  await sendDeleteConfirmationEmail({
+    to: domain.notifyEmail,
+    domain: domain.name,
+    confirmUrl,
+  });
+
+  return NextResponse.json({ pendingConfirmation: true }, { status: 202 });
 }
 
 // Tek bir domain'i elle yeniden kontrol etmek için (Yenile butonu)
