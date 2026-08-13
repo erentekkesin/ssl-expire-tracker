@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Footer from "@/components/Footer";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,11 +35,34 @@ export default function RegisterPage() {
         setError(data.error || "Kayıt olunamadı");
         return;
       }
+      if (data.pendingVerification) {
+        setRegisteredEmail(email);
+        return;
+      }
       router.push("/");
       router.refresh();
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (registeredEmail) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+        <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-6 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/20 text-2xl">
+            ✉️
+          </div>
+          <h1 className="mb-2 text-xl font-bold">E-postanızı kontrol edin</h1>
+          <p className="text-sm text-slate-300">
+            <strong className="text-white">{registeredEmail}</strong> adresine
+            bir onay bağlantısı gönderdik. Hesabınızı etkinleştirmek için
+            e-postadaki bağlantıya tıklayın.
+          </p>
+        </div>
+        <Footer />
+      </main>
+    );
   }
 
   return (
@@ -107,6 +132,8 @@ export default function RegisterPage() {
           Giriş yapın
         </Link>
       </p>
+
+      <Footer />
     </main>
   );
 }

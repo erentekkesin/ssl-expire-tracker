@@ -24,6 +24,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!user.emailVerified) {
+    return NextResponse.json(
+      { error: "Önce e-postanızı onaylamanız gerekiyor. Gelen kutunuzu kontrol edin." },
+      { status: 403 }
+    );
+  }
+
   const session = await createSession(user.id);
   const response = NextResponse.json({ ok: true });
   setSessionCookie(response, session.id);

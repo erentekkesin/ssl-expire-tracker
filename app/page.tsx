@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Footer from "@/components/Footer";
 
 interface Domain {
   id: string;
@@ -169,7 +171,9 @@ export default function Home() {
   };
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <main className="relative mx-auto max-w-4xl px-6 py-12">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(ellipse_at_top,_rgba(79,70,229,0.15),transparent_70%)]" />
+
       <header className="mb-10 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">SSL Expire Tracker</h1>
@@ -180,8 +184,19 @@ export default function Home() {
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
           {userEmail && (
-            <span className="hidden text-sm text-slate-500 sm:inline">{userEmail}</span>
+            <div className="hidden items-center gap-2 sm:flex">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-semibold text-indigo-300">
+                {userEmail.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-sm text-slate-500">{userEmail}</span>
+            </div>
           )}
+          <Link
+            href="/settings"
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-indigo-500 hover:text-indigo-400"
+          >
+            Ayarlar
+          </Link>
           <button
             onClick={handleLogout}
             className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400"
@@ -193,19 +208,19 @@ export default function Home() {
 
       {!loading && domains.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 transition hover:border-slate-700">
             <p className="text-2xl font-bold">{summary.total}</p>
             <p className="text-xs text-slate-500">Toplam Domain</p>
           </div>
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 transition hover:border-emerald-500/40">
             <p className="text-2xl font-bold text-emerald-400">{summary.ok}</p>
             <p className="text-xs text-slate-500">Güvende</p>
           </div>
-          <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+          <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 transition hover:border-orange-500/40">
             <p className="text-2xl font-bold text-orange-400">{summary.attention}</p>
             <p className="text-xs text-slate-500">Dikkat Gerekli</p>
           </div>
-          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 transition hover:border-indigo-500/40">
             <p className="text-2xl font-bold text-indigo-400">{summary.pending}</p>
             <p className="text-xs text-slate-500">Onay Bekliyor</p>
           </div>
@@ -298,7 +313,7 @@ export default function Home() {
             return (
               <div
                 key={d.id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 transition hover:border-slate-700 hover:bg-slate-900 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -358,9 +373,7 @@ export default function Home() {
         </div>
       )}
 
-      <footer className="mt-16 border-t border-slate-800 pt-6 text-center text-xs text-slate-600">
-        Eren Tekkeşin tarafından yapılmıştır.
-      </footer>
+      <Footer />
     </main>
   );
 }

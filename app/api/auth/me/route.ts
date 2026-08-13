@@ -6,5 +6,5 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Giriş yapmalısınız" }, { status: 401 });
   }
-  return NextResponse.json({ email: user.email });
+  return NextResponse.json({ email: user.email, pendingDelete: user.pendingDelete });
 }

@@ -82,6 +82,61 @@ export async function sendDeleteConfirmationEmail(params: {
   });
 }
 
+export async function sendVerifyEmail(params: { to: string; confirmUrl: string }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY tanımlı değil, onay e-postası gönderilmedi.");
+    return null;
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { to, confirmUrl } = params;
+
+  const html = wrapHtml(`
+    <h2 style="color: #4f46e5;">Hoş Geldiniz</h2>
+    <p>SSL Expire Tracker'da hesabınızı oluşturmak için son bir adım kaldı. Hesabınızı etkinleştirmek için aşağıdaki butona tıklayın.</p>
+    <p style="margin: 24px 0;">
+      <a href="${confirmUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">E-postamı Onayla</a>
+    </p>
+    <p style="color: #6b7280; font-size: 13px;">Bu kaydı siz yapmadıysanız bu e-postayı yok sayabilirsiniz, hesap oluşturulmayacaktır.</p>
+  `);
+
+  return resend.emails.send({
+    from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",
+    to,
+    subject: "SSL Expire Tracker - Hesabınızı onaylayın",
+    html,
+  });
+}
+
+export async function sendAccountDeleteConfirmationEmail(params: {
+  to: string;
+  confirmUrl: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY tanımlı değil, onay e-postası gönderilmedi.");
+    return null;
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { to, confirmUrl } = params;
+
+  const html = wrapHtml(`
+    <h2 style="color: #dc2626;">Hesap Silme Onayı</h2>
+    <p>SSL Expire Tracker hesabınızı ve takip ettiğiniz tüm domainleri kalıcı olarak silmek istediğinizi onaylamak için aşağıdaki butona tıklayın.</p>
+    <p style="margin: 24px 0;">
+      <a href="${confirmUrl}" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">Hesabımı Sil</a>
+    </p>
+    <p style="color: #6b7280; font-size: 13px;">Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz, hesabınız silinmeyecektir.</p>
+  `);
+
+  return resend.emails.send({
+    from: process.env.EMAIL_FROM || "SSL Tracker <onboarding@resend.dev>",
+    to,
+    subject: "Onay gerekli: SSL Expire Tracker hesabınızı silmek istiyor musunuz?",
+    html,
+  });
+}
+
 export async function sendExpiryEmail(params: {
   to: string;
   domain: string;

@@ -15,12 +15,16 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  createdAt    DateTime  @default(now())
-  domains      Domain[]
-  sessions     Session[]
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  emailVerified Boolean   @default(false)
+  verifyToken   String?   @unique
+  deleteToken   String?   @unique
+  pendingDelete Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  domains       Domain[]
+  sessions      Session[]
 }
 
 model Session {

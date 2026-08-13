@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  createSession,
-  hashPassword,
-  isValidEmail,
-  setSessionCookie,
-} from "@/lib/auth";
+import { createSession, hashPassword, isValidEmail, setSessionCookie } from "@/lib/auth";
+import { generateToken } from "@/lib/tokens";
+import { isEmailConfigured, sendVerifyEmail } from "@/lib/email";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
@@ -39,12 +36,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const user = await prisma.user.create({
-    data: { email, passwordHash: hashPassword(password) },
+  const passwordHash = hashPassword(password);
+
+  // E-posta gönderimi kurulu değilse onay akışını atla, hesabı direkt doğrulanmış say.
+  if (!isEmailConfigured()) {
+    const user = await prisma.user.create({
+      data: { email, passwordHash, emailVerified: true },
+    });
+    const session = await createSession(user.id);
+    const response = NextResponse.json({ ok: true });
+    setSessionCookie(response, session.id);
+    return response;
+  }
+
+  const verifyToken = generateToken();
+  await prisma.user.create({
+    data: { email, passwordHash, emailVerified: false, verifyToken },
   });
 
-  const session = await createSession(user.id);
-  const response = NextResponse.json({ ok: true });
-  setSessionCookie(response, session.id);
-  return response;
+  const confirmUrl = `${req.nextUrl.origin}/verify-email?token=${verifyToken}`;
+  await sendVerifyEmail({ to: email, confirmUrl });
+
+  return NextResponse.json({ pendingVerification: true }, { status: 202 });
 }
