@@ -122,22 +122,6 @@ function LoginForm() {
             ))}
           </div>
 
-          <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-slate-400">
-            <p className="mb-1 font-medium text-amber-400">
-              📧 E-posta spam ağ geçidiniz için bilgi
-            </p>
-            <p>
-              Bildirim ve onay e-postaları{" "}
-              <code className="rounded bg-slate-900 px-1.5 py-0.5 text-slate-300">
-                onboarding@resend.dev
-              </code>{" "}
-              adresinden, Resend altyapısı (Amazon SES) üzerinden gönderilir.
-              E-postaların spam'e düşmemesi için bu gönderen adresini beyaz
-              listenize (allowlist) ekleyebilirsiniz. Gönderim IP'leri paylaşılan
-              ve dinamik olduğundan, IP yerine gönderen adresini/domainini esas
-              almanızı öneririz.
-            </p>
-          </div>
         </div>
 
         {/* Sağ taraf: giriş formu */}
