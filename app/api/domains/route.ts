@@ -5,9 +5,16 @@ import { isEmailConfigured, sendAddConfirmationEmail } from "@/lib/email";
 import { generateToken } from "@/lib/tokens";
 import { maskEmail } from "@/lib/mask";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { getSessionUser } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Giriş yapmalısınız" }, { status: 401 });
+  }
+
   const domains = await prisma.domain.findMany({
+    where: { userId: user.id },
     orderBy: { expiresAt: "asc" },
     select: {
       id: true,
@@ -31,6 +38,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Giriş yapmalısınız" }, { status: 401 });
+  }
+
   const ip = getClientIp(req);
   if (isRateLimited(`add:${ip}`, 5, 10 * 60 * 1000)) {
     return NextResponse.json(
@@ -55,13 +67,15 @@ export async function POST(req: NextRequest) {
     .replace(/^https?:\/\//, "")
     .replace(/\/.*$/, "");
 
-  const existing = await prisma.domain.findUnique({ where: { name: cleanName } });
+  const existing = await prisma.domain.findFirst({
+    where: { userId: user.id, name: cleanName },
+  });
 
   // E-posta gönderimi kurulu değilse onay akışını atla, eskisi gibi doğrudan ekle.
   if (!isEmailConfigured()) {
     if (existing) {
       return NextResponse.json(
-        { error: "Bu domain zaten listede var" },
+        { error: "Bu domain zaten listenizde var" },
         { status: 409 }
       );
     }
@@ -70,6 +84,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: cleanName,
         notifyEmail,
+        userId: user.id,
         confirmed: true,
         lastCheckedAt: new Date(),
         expiresAt: result.expiresAt ?? null,
@@ -86,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   if (existing && existing.confirmed) {
     return NextResponse.json(
-      { error: "Bu domain zaten listede var" },
+      { error: "Bu domain zaten listenizde var" },
       { status: 409 }
     );
   }
@@ -102,6 +117,7 @@ export async function POST(req: NextRequest) {
         data: {
           name: cleanName,
           notifyEmail,
+          userId: user.id,
           confirmed: false,
           confirmToken,
         },

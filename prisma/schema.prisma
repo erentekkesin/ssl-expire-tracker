@@ -14,23 +14,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  domains      Domain[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 model Domain {
-  id            String   @id @default(cuid())
-  name          String   @unique // örn: example.com
+  id            String    @id @default(cuid())
+  name          String // örn: example.com
   notifyEmail   String
   lastCheckedAt DateTime?
   expiresAt     DateTime?
   issuer        String?
-  status        String   @default("pending") // pending | ok | warning | critical | expired | error
+  status        String    @default("pending") // pending | ok | warning | critical | expired | error
   lastError     String?
-  notified30    Boolean  @default(false)
-  notified15    Boolean  @default(false)
-  notified7     Boolean  @default(false)
-  notified1     Boolean  @default(false)
-  confirmed     Boolean  @default(false)
-  confirmToken  String?  @unique
-  deleteToken   String?  @unique
-  pendingDelete Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  notified30    Boolean   @default(false)
+  notified15    Boolean   @default(false)
+  notified7     Boolean   @default(false)
+  notified1     Boolean   @default(false)
+  confirmed     Boolean   @default(false)
+  confirmToken  String?   @unique
+  deleteToken   String?   @unique
+  pendingDelete Boolean   @default(false)
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, name])
 }

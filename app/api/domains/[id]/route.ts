@@ -5,11 +5,17 @@ import { isEmailConfigured, sendDeleteConfirmationEmail } from "@/lib/email";
 import { generateToken } from "@/lib/tokens";
 import { maskEmail } from "@/lib/mask";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { getSessionUser } from "@/lib/auth";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Giriş yapmalısınız" }, { status: 401 });
+  }
+
   const ip = getClientIp(req);
   if (isRateLimited(`delete:${ip}`, 10, 10 * 60 * 1000)) {
     return NextResponse.json(
@@ -19,7 +25,7 @@ export async function DELETE(
   }
 
   const domain = await prisma.domain.findUnique({ where: { id: params.id } });
-  if (!domain) {
+  if (!domain || domain.userId !== user.id) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
 
@@ -48,11 +54,16 @@ export async function DELETE(
 
 // Tek bir domain'i elle yeniden kontrol etmek için (Yenile butonu)
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Giriş yapmalısınız" }, { status: 401 });
+  }
+
   const domain = await prisma.domain.findUnique({ where: { id: params.id } });
-  if (!domain) {
+  if (!domain || domain.userId !== user.id) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
 

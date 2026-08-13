@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Domain {
   id: string;
@@ -45,6 +46,7 @@ function daysLeft(expiresAt: string | null) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -55,16 +57,36 @@ export default function Home() {
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   async function loadDomains() {
     const res = await fetch("/api/domains");
+    if (res.status === 401) {
+      router.push("/login");
+      return;
+    }
     const data = await res.json();
     setDomains(data);
     setLoading(false);
   }
 
+  async function loadUser() {
+    const res = await fetch("/api/auth/me");
+    if (res.ok) {
+      const data = await res.json();
+      setUserEmail(data.email);
+    }
+  }
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+
   useEffect(() => {
     loadDomains();
+    loadUser();
   }, []);
 
   async function handleAdd(e: React.FormEvent) {
@@ -148,12 +170,25 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
-      <header className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight">SSL Expire Tracker</h1>
-        <p className="mt-2 text-slate-400">
-          Web sitelerinizin SSL sertifika bitiş tarihlerini takip edin, süresi
-          yaklaştığında otomatik e-posta ile haberdar olun.
-        </p>
+      <header className="mb-10 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">SSL Expire Tracker</h1>
+          <p className="mt-2 text-slate-400">
+            Web sitelerinizin SSL sertifika bitiş tarihlerini takip edin, süresi
+            yaklaştığında otomatik e-posta ile haberdar olun.
+          </p>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-3">
+          {userEmail && (
+            <span className="hidden text-sm text-slate-500 sm:inline">{userEmail}</span>
+          )}
+          <button
+            onClick={handleLogout}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500 hover:text-red-400"
+          >
+            Çıkış Yap
+          </button>
+        </div>
       </header>
 
       {!loading && domains.length > 0 && (
